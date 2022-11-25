@@ -76,8 +76,6 @@ class WatchFaceConfigStateHolder(
     private lateinit var digitalStyleKey: UserStyleSetting.ListUserStyleSetting
     private lateinit var watchFaceModeKey: UserStyleSetting.ListUserStyleSetting
 
-//    private lateinit var minuteHandLengthKey: UserStyleSetting.DoubleRangeUserStyleSetting
-
     val uiState: StateFlow<EditWatchFaceUiState> =
         flow<EditWatchFaceUiState> {
             editorSession = EditorSession.createOnWatchEditorSession(

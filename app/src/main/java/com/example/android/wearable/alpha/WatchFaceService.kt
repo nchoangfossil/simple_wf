@@ -15,8 +15,6 @@
  */
 package com.example.android.wearable.alpha
 
-import android.content.Intent
-import android.os.Bundle
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.wear.watchface.CanvasType
@@ -36,6 +34,7 @@ import com.example.android.wearable.alpha.utils.createUserStyleSchema
  * the watch face).
  */
 class WatchFaceService : WatchFaceService() {
+
 
     // Used by Watch Face APIs to construct user setting options and repository.
     override fun createUserStyleSchema(): UserStyleSchema =
@@ -64,17 +63,13 @@ class WatchFaceService : WatchFaceService() {
             watchState = watchState,
             complicationSlotsManager = complicationSlotsManager,
             currentUserStyleRepository = currentUserStyleRepository,
-            canvasType = CanvasType.HARDWARE
+            canvasType = CanvasType.HARDWARE,
         )
 
-        val watchFace = WatchFace(
+        return WatchFace(
             watchFaceType = WatchFaceType.ANALOG,
             renderer = renderer
-        )
-
-        val event = TapEvent()
-        watchFace.setTapListener(event)
-        return watchFace
+        ).setTapListener(renderer)
     }
 
     companion object {

@@ -4,10 +4,8 @@ import android.content.Context
 import android.graphics.*
 import android.util.Log
 import android.view.SurfaceHolder
-import androidx.wear.watchface.ComplicationSlotsManager
-import androidx.wear.watchface.DrawMode
-import androidx.wear.watchface.Renderer
-import androidx.wear.watchface.WatchState
+import androidx.wear.watchface.*
+import androidx.wear.watchface.TapEvent
 import androidx.wear.watchface.complications.rendering.CanvasComplicationDrawable
 import androidx.wear.watchface.complications.rendering.ComplicationDrawable
 import androidx.wear.watchface.style.CurrentUserStyleRepository
@@ -36,7 +34,7 @@ open class WatchFaceCanvasRenderer(
     watchState: WatchState,
     private val complicationSlotsManager: ComplicationSlotsManager,
     currentUserStyleRepository: CurrentUserStyleRepository,
-    canvasType: Int
+    canvasType: Int,
 ) : Renderer.CanvasRenderer2<WatchFaceCanvasRenderer.AnalogSharedAssets>(
     surfaceHolder,
     currentUserStyleRepository,
@@ -44,9 +42,14 @@ open class WatchFaceCanvasRenderer(
     canvasType,
     FRAME_PERIOD_MS_DEFAULT,
     clearWithBackgroundTintBeforeRenderingHighlightLayer = false
-) {
+), WatchFace.TapListener {
 
-    private lateinit var renderer: IWatchFaceCanvasRender
+    private var watchFaceMode: WatchFaceMode = WatchFaceMode.DIGITAL
+    private lateinit var canvasRenderer: IWatchFaceCanvasRender
+    private lateinit var zonedDateTime: ZonedDateTime
+
+    private lateinit var bounds: Rect
+    private lateinit var canvas: Canvas
 
     class AnalogSharedAssets : SharedAssets {
         override fun onDestroy() {
@@ -89,6 +92,7 @@ open class WatchFaceCanvasRenderer(
      * function is called by a flow.
      */
     open fun updateWatchFaceData(userStyle: UserStyle) {
+
         var newWatchFaceData: WatchFaceData = watchFaceData
 
         // Loops through user style and applies new values to watchFaceData.
@@ -139,8 +143,8 @@ open class WatchFaceCanvasRenderer(
         if (watchFaceData != newWatchFaceData) {
             watchFaceData = newWatchFaceData
 
-            if (::renderer.isInitialized) {
-                renderer.setStyle()
+            if (::canvasRenderer.isInitialized) {
+                canvasRenderer.setStyle()
             }
 
             // Recreates Color and ComplicationDrawable from resource ids.
@@ -159,6 +163,19 @@ open class WatchFaceCanvasRenderer(
                 }
             }
         }
+    }
+
+    private fun renderWatchFaceMode() {
+        canvasRenderer = WatchFaceCanvasRendererFactory.createWatchFaceRenderer(
+            type = watchFaceMode,
+            context = context,
+            watchFaceData = watchFaceData,
+            bounds = bounds,
+            canvas = canvas,
+            renderParameters = renderParameters,
+            zonedDateTime = zonedDateTime
+        )
+        canvasRenderer.drawCanvas()
     }
 
     override fun onDestroy() {
@@ -182,50 +199,41 @@ open class WatchFaceCanvasRenderer(
     override fun render(
         canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: AnalogSharedAssets
     ) {
+        this.canvas = canvas
+        this.bounds = bounds
+        this.zonedDateTime = zonedDateTime
+
+
         val backgroundColor = if (renderParameters.drawMode == DrawMode.AMBIENT) {
             watchFaceColors.ambientBackgroundColor
         } else {
             watchFaceColors.activeBackgroundColor
         }
         canvas.drawColor(backgroundColor)
-
-        renderer = WatchFaceCanvasRendererFactory.createWatchFaceRenderer(
-            type = WatchFaceMode.DIGITAL,
-            context = context,
-            watchFaceData = watchFaceData,
-            bounds = bounds,
-            canvas = canvas
-        )
-
-//        val renderer = WatchFaceCanvasRendererFactory.createWatchFaceRenderer(
-//            type = WatchFaceType.ANALOG,
-//            context = context,
-//            watchFaceData = watchFaceData,
-//            bounds = bounds,
-//            canvas = canvas,
-//            zonedDateTime = zonedDateTime,
-//            renderParameters = renderParameters
-//        )
-
-        renderer.drawCanvas()
+        renderWatchFaceMode()
     }
 
     // ----- All drawing functions -----
-    private fun drawBackGround(canvas: Canvas) {
-        val stream: InputStream = context.assets.open(watchFaceData.backGroundStyle.resourcePath)
-        val bitmap: Bitmap = BitmapFactory.decodeStream(stream)
-        val corX = 0.0f
-        val corY = 0.0f
-        val scaledBitmap: Bitmap =
-            Bitmap.createScaledBitmap(bitmap, canvas.width, canvas.height, true)
-        canvas.drawBitmap(scaledBitmap, corX, corY, null)
-    }
 
     private fun drawComplications(canvas: Canvas, zonedDateTime: ZonedDateTime) {
         for ((_, complication) in complicationSlotsManager.complicationSlots) {
             if (complication.enabled) {
                 complication.render(canvas, zonedDateTime, renderParameters)
             }
+        }
+    }
+
+    override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
+        if (tapType == TapType.UP){
+            changeWatchFaceMode()
+        }
+    }
+
+    private fun changeWatchFaceMode(){
+        watchFaceMode = if (watchFaceMode == WatchFaceMode.DIGITAL) {
+            WatchFaceMode.ANALOG
+        } else {
+            WatchFaceMode.DIGITAL
         }
     }
 
